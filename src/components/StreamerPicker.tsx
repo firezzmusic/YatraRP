@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Streamer, Platform } from '../types';
 import { YATRA_STREAMERS } from '../constants';
 import { cn } from '../lib/utils';
-import { Search, Plus, Youtube, Tv, X, ExternalLink } from 'lucide-react';
+import { Search, Plus, Youtube, Tv, X, ExternalLink, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface StreamerPickerProps {
@@ -41,30 +41,33 @@ export const StreamerPicker: React.FC<StreamerPickerProps> = ({
     selectedStreamers.forEach(s => onRemoveStreamer(s.id));
   };
 
-  useEffect(() => {
-    const fetchLiveStreams = async () => {
-      try {
-        // Try local proxy first
-        let res = await fetch('/api/streams/live');
-        
-        // If local proxy fails (404 on Vercel), try absolute URL as fallback
-        if (!res.ok) {
-           res = await fetch('https://yatrarp.com/api/streams/live', { mode: 'cors' });
-        }
-        
-        if (!res.ok) throw new Error('API failed');
-        const data = await res.json();
-        if (data && data.streams) {
-          setLiveStreams(data.streams);
-          setApiError(false);
-        }
-      } catch (err) {
-        console.error('Failed to fetch live streams.', err);
-        setApiError(true);
-      } finally {
-        setIsLoadingLive(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchLiveStreams = async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch('/api/streams/live');
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.details || 'API failed');
       }
-    };
+      
+      const data = await res.json();
+      if (data && data.streams) {
+        setLiveStreams(data.streams);
+        setApiError(false);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch live streams:', err.message);
+      setApiError(true);
+    } finally {
+      setIsRefreshing(false);
+      setIsLoadingLive(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLiveStreams();
     const interval = setInterval(fetchLiveStreams, 60000);
     return () => clearInterval(interval);
@@ -154,10 +157,23 @@ export const StreamerPicker: React.FC<StreamerPickerProps> = ({
         </div>
 
         <section className="mb-8">
-          <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-1 flex items-center gap-1 text-zinc-600">
-            <div className={`w-2 h-2 rounded-full ${apiError ? 'bg-zinc-700' : 'bg-red-500 animate-pulse'}`} />
-            Live Now ({isLoadingLive ? '...' : liveStreams.length})
-          </h3>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1 text-zinc-600">
+              <div className={`w-2 h-2 rounded-full ${apiError ? 'bg-zinc-700' : 'bg-red-500 animate-pulse'}`} />
+              Live Now ({isLoadingLive ? '...' : liveStreams.length})
+            </h3>
+            <button 
+              onClick={() => fetchLiveStreams()}
+              disabled={isRefreshing}
+              className={cn(
+                "p-1 hover:bg-white/5 rounded transition-all text-zinc-600 hover:text-amber-500",
+                isRefreshing && "animate-spin text-amber-500"
+              )}
+              title="Refresh Live List"
+            >
+              <RefreshCw size={12} />
+            </button>
+          </div>
           <div className="grid grid-cols-1 gap-2">
             {!isLoadingLive && apiError && (
               <div className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
