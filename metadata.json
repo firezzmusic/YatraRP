@@ -1,0 +1,6 @@
+{
+  "name": "Yatra RP Multiview",
+  "description": "Multi-POV stream viewer for Yatra RP streamers. Supports YouTube and Kick with multiple layout modes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
